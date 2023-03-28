@@ -62,6 +62,15 @@ static __uint128_t fib_sequence(long long k)
     return a;
 }
 
+static long long fib_time_proxy(long long k)
+{
+    kt = ktime_get();
+    long long result = fib_sequence(k);
+    kt = ktime_sub(ktime_get(), kt);
+
+    return result;
+}
+
 
 static int fib_open(struct inode *inode, struct file *file)
 {
@@ -77,16 +86,6 @@ static int fib_release(struct inode *inode, struct file *file)
     mutex_unlock(&fib_mutex);
     return 0;
 }
-
-static __uint128_t fib_time_proxy(long long k)
-{
-    kt = ktime_get();
-    __uint128_t result = fib_sequence(k);
-    kt = ktime_sub(ktime_get(), kt);
-
-    return result;
-}
-
 
 /* calculate the fibonacci number at given offset */
 static ssize_t fib_read(struct file *file,
