@@ -11,8 +11,22 @@
 
 int main()
 {
-    // char buf[1];
-    // char write_buf[] = "testing writing";
+    big_num_t a;
+    big_num_t b;
+    big_num_t c;
+    big_num_init(&a, 23567342);
+    big_num_init(&b, 7651);
+    big_num_init(&c, 1);
+
+    printf("The value of a is %s\n", a.num_string);
+    big_num_add(&a, &b, &c);
+    printf("The value of c after add is %s\n", c.num_string);
+    reverse_bn(&c);
+
+    printf("The value of c is %s\n", c.num_string);
+
+    char buf[1];
+    char write_buf[] = "testing writing";
     // int offset = 100; /* TODO: try test something bigger than the limit */
     // FILE *data_set = fopen("data.dat", "w");
 
