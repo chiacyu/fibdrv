@@ -55,7 +55,7 @@ void big_num_init(big_num_t *input, long long num)
 void reverse_bn(big_num_t *a)
 {
     char *buf = malloc(Max_len * sizeof(char));
-    strlcpy(buf, a->num_string, (Max_len * sizeof(char)));
+    strncpy(buf, a->num_string, (Max_len * sizeof(char)));
     int bit_num = a->num_size;
     int j = 0;
     for (int i = bit_num - 1; i >= 0; i--) {
