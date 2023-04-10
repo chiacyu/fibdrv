@@ -112,12 +112,12 @@ static long long fib_sequence_big_num_fix_fd(long long k, char *buf)
 
         big_num_fix_mul(&b, &b, &bsquare);
         big_num_fix_mul(&a, &a, &asquare);
-        big_num_add(&asquare, &bsquare, &t2);
+        big_num_fix_add(&asquare, &bsquare, &t2);
 
         a = t1;
         b = t2;
         if (((k >> (len - 1)) & 0x1)) {
-            big_num_add(&a, &b, &t1);
+            big_num_fix_add(&a, &b, &t1);
             a = b;
             b = t1;
         }

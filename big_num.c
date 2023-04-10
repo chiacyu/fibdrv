@@ -13,40 +13,40 @@
 
 #define Max_len 128
 
-static void big_num_add(big_num_t *a, big_num_t *b, big_num_t *c)
-{
-    int a_size = a->num_size;
-    int b_size = b->num_size;
-    int max_size = (a_size > b_size) ? a_size : b_size;
+// static void big_num_add(big_num_t *a, big_num_t *b, big_num_t *c)
+// {
+//     int a_size = a->num_size;
+//     int b_size = b->num_size;
+//     int max_size = (a_size > b_size) ? a_size : b_size;
 
-    int carry = 0;
-    int a_num;
-    int b_num;
+//     int carry = 0;
+//     int a_num;
+//     int b_num;
 
-    for (int i = 0; i < max_size; i++) {
-        int total_sum;
-        if (a->num_string[i]) {
-            a_num = a->num_string[i] - '0';
-        } else {
-            a_num = 0;
-        }
-        if (b->num_string[i]) {
-            b_num = b->num_string[i] - '0';
-        } else {
-            b_num = 0;
-        }
-        total_sum = a_num + b_num + carry;
-        c->num_string[i] = (total_sum % 10) + '0';
-        c->num_size += 1;
-        carry = total_sum / 10;
-    }
-    if (carry) {
-        c->num_string[max_size] = carry + '0';
-        max_size += 1;
-    }
-    c->num_size = max_size;
-    return;
-};
+//     for (int i = 0; i < max_size; i++) {
+//         int total_sum;
+//         if (a->num_string[i]) {
+//             a_num = a->num_string[i] - '0';
+//         } else {
+//             a_num = 0;
+//         }
+//         if (b->num_string[i]) {
+//             b_num = b->num_string[i] - '0';
+//         } else {
+//             b_num = 0;
+//         }
+//         total_sum = a_num + b_num + carry;
+//         c->num_string[i] = (total_sum % 10) + '0';
+//         c->num_size += 1;
+//         carry = total_sum / 10;
+//     }
+//     if (carry) {
+//         c->num_string[max_size] = carry + '0';
+//         max_size += 1;
+//     }
+//     c->num_size = max_size;
+//     return;
+// };
 
 static void big_num_fix_add(big_num_fix_t *ina,
                             big_num_fix_t *inb,
