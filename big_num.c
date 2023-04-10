@@ -1,9 +1,19 @@
 #include "big_num.h"
-#include <stdio.h>
+#include <linux/slab.h>
+#include <linux/types.h>
+#define XOR_SWAP(a, b, type) \
+    do {                     \
+        type *__c = (a);     \
+        type *__d = (b);     \
+        *__c ^= *__d;        \
+        *__d ^= *__c;        \
+        *__c ^= *__d;        \
+    } while (0)
+
 
 #define Max_len 128
 
-void big_num_add(big_num_t *a, big_num_t *b, big_num_t *c)
+static void big_num_add(big_num_t *a, big_num_t *b, big_num_t *c)
 {
     int a_size = a->num_size;
     int b_size = b->num_size;
@@ -38,44 +48,126 @@ void big_num_add(big_num_t *a, big_num_t *b, big_num_t *c)
     return;
 };
 
-void big_num_init(big_num_t *input, long long num)
+static void big_num_fix_add(big_num_fix_t *ina,
+                            big_num_fix_t *inb,
+                            big_num_fix_t *out)
 {
-    int bits = num_digits(num);
-    input->num_size = bits;
-    input->num_string = malloc(Max_len * sizeof(char));
-    int i = 0;
-    while (bits--) {
-        int num_c = num % 10;
-        input->num_string[i++] = (num_c + '0');
-        num /= 10;
+    size_t size_a = strlen(ina->num);
+    size_t size_b = strlen(inb->num);
+    int i, sum, carry = 0;
+    if (size_a >= size_b) {
+        for (i = 0; i < size_b; i++) {
+            sum = (ina->num[i] - '0') + (inb->num[i] - '0') + carry;
+            out->num[i] = '0' + sum % 10;
+            carry = sum / 10;
+        }
+
+        for (i = size_b; i < size_a; i++) {
+            sum = (ina->num[i] - '0') + carry;
+            out->num[i] = '0' + sum % 10;
+            carry = sum / 10;
+        }
+    } else {
+        for (i = 0; i < size_a; i++) {
+            sum = (ina->num[i] - '0') + (inb->num[i] - '0') + carry;
+            out->num[i] = '0' + sum % 10;
+            carry = sum / 10;
+        }
+
+        for (i = size_a; i < size_b; i++) {
+            sum = (inb->num[i] - '0') + carry;
+            out->num[i] = '0' + sum % 10;
+            carry = sum / 10;
+        }
+    }
+
+    if (carry)
+        out->num[i++] = '0' + carry;
+    out->num[i] = '\0';
+}
+
+static void big_num_fix_mul(big_num_fix_t *ina,
+                            big_num_fix_t *inb,
+                            big_num_fix_t *out)
+{
+    int carry = 0, sum, base;
+    size_t size_a = strlen(ina->num);
+    size_t size_b = strlen(inb->num);
+    for (int i = 0; i < size_b; i++) {
+        for (int j = 0; j < size_a; j++) {
+            base = out->num[j + i] - '0';
+            if (i == 0)
+                base = 0;
+            sum = ((inb->num[i] - '0') * (ina->num[j] - '0')) + carry + base;
+            carry = sum / 10;
+            out->num[j + i] = (sum % 10) + '0';
+        }
+        if (carry) {
+            out->num[i + size_a] = ('0' + carry);
+            carry = 0;
+        }
     }
     return;
 }
 
-void reverse_bn(big_num_t *a)
+static void big_num_fix_sub(big_num_fix_t *ina,
+                            big_num_fix_t *inb,
+                            big_num_fix_t *out)
 {
-    char *buf = malloc(Max_len * sizeof(char));
-    strncpy(buf, a->num_string, (Max_len * sizeof(char)));
-    int bit_num = a->num_size;
-    int j = 0;
-    for (int i = bit_num - 1; i >= 0; i--) {
-        a->num_string[j++] = buf[i];
+    size_t sizes = strlen(ina->num) > strlen(inb->num) ? strlen(ina->num)
+                                                       : strlen(inb->num);
+    for (int i = 0; i < sizes; i++) {
+        if (ina->num[i] < inb->num[i]) {
+            ina->num[i + 1]--;
+            ina->num[i] += 10;
+        }
+        out->num[i] = ina->num[i] - inb->num[i];
     }
+    return;
 }
 
-int num_digits(long long num)
-{
-    int result = 0;
-    while (num) {
-        result += 1;
-        num /= 10;
-    }
-    return result;
-}
-
-// void bn_swap(big_num_t *a, big_num_t *b)
+// static void big_num_init(big_num_t *input, long long num)
 // {
-//     big_num_t tmp = *a;
-//     *a = *b;
-//     *b = tmp;
+//     if (num == 0) {
+//         input->num_size = 1;
+//         input->num_string = kmalloc(Max_len * sizeof(char), GFP_KERNEL);
+//         input->num_string[0] = '0';
+//         input->num_string[1] = '\0';
+//         return;
+//     }
+//     input->num_size = 1;
+//     input->num_string = kmalloc(Max_len * sizeof(char), GFP_KERNEL);
+//     input->num_string[0] = '1';
+//     input->num_string[1] = '\0';
+//     return;
 // }
+
+static void __swap(void *a, void *b, size_t size)
+{
+    if (a == b)
+        return;
+
+    switch (size) {
+    case 1:
+        XOR_SWAP(a, b, char);
+        break;
+    case 2:
+        XOR_SWAP(a, b, short);
+        break;
+    case 4:
+        XOR_SWAP(a, b, unsigned int);
+        break;
+    case 8:
+        XOR_SWAP(a, b, unsigned long);
+        break;
+    default:
+        /* Do nothing */
+        break;
+    }
+}
+
+static void reverse_str(char *str, size_t n)
+{
+    for (int i = 0; i < (n >> 1); i++)
+        __swap(&str[i], &str[n - i - 1], sizeof(char));
+}

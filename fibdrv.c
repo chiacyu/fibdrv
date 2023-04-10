@@ -1,3 +1,4 @@
+#include <asm/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -6,6 +7,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+
+#include "big_num.c"
+
 
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_AUTHOR("National Cheng Kung University, Taiwan");
@@ -25,22 +29,23 @@ static struct class *fib_class;
 static ktime_t kt;
 static DEFINE_MUTEX(fib_mutex);
 
-// static long long fib_sequence(long long k)
-// {
-//     /* FIXME: C99 variable-length array (VLA) is not allowed in Linux kernel.
-//     */ long long f[k + 2];
+static long long fib_sequence(long long k)
+{
+    /* FIXME: C99 variable-length array (VLA) is not allowed in Linux kernel.
+     */
+    long long f[k + 2];
 
-//     f[0] = 0;
-//     f[1] = 1;
+    f[0] = 0;
+    f[1] = 1;
 
-//     for (int i = 2; i <= k; i++) {
-//         f[i] = f[i - 1] + f[i - 2];
-//     }
+    for (int i = 2; i <= k; i++) {
+        f[i] = f[i - 1] + f[i - 2];
+    }
 
-//     return f[k];
-// }
+    return f[k];
+}
 
-static __uint128_t fib_sequence(long long k)
+static __uint128_t fib_sequence_fast_doubling(long long k)
 {
     __uint128_t a = 0;
     __uint128_t b = 1;
@@ -62,15 +67,93 @@ static __uint128_t fib_sequence(long long k)
     return a;
 }
 
-static long long fib_time_proxy(long long k)
+static long long fib_sequence_big_num_fix(long long k, char *buf)
+{
+    /* FIXME: C99 variable-length array (VLA) is not allowed in Linux kernel.
+     */
+    // big_num_t f[k + 2];
+    big_num_fix_t *f = kmalloc((k + 2) * sizeof(big_num_fix_t), GFP_KERNEL);
+
+    f[0].num[0] = '0';
+    f[0].num[1] = '1';
+
+    for (int i = 2; i <= k; i++) {
+        big_num_fix_add(&f[i - 1], &f[i - 2], &f[i]);
+    }
+
+    size_t ret = strlen(f[k].num);
+    reverse_str(f[k].num, ret);
+    copy_to_user(buf, f[k].num, ret);
+    return ret;
+}
+
+static long long fib_sequence_big_num_fix_fd(long long k, char *buf)
+{
+    big_num_fix_t a;
+    big_num_fix_t b;
+    big_num_fix_t t1, t2;
+    big_num_fix_t const2;
+    a.num[0] = '0';
+    a.num[1] = '\0';
+    b.num[0] = '7';
+    b.num[1] = '\0';
+    const2.num[0] = '8';
+    const2.num[1] = '\0';
+    big_num_fix_t twobtmp;
+    big_num_fix_t twobmatmp;
+    big_num_fix_t bsquare;
+    big_num_fix_t asquare;
+    int len = 64 - __builtin_clzl(k);
+
+    while (len > 0) {
+        big_num_fix_mul(&const2, &b, &twobtmp);
+        big_num_fix_sub(&twobtmp, &a, &twobmatmp);
+        big_num_fix_mul(&a, &twobmatmp, &t1);
+
+        big_num_fix_mul(&b, &b, &bsquare);
+        big_num_fix_mul(&a, &a, &asquare);
+        big_num_add(&asquare, &bsquare, &t2);
+
+        a = t1;
+        b = t2;
+        if (((k >> (len - 1)) & 0x1)) {
+            big_num_add(&a, &b, &t1);
+            a = b;
+            b = t1;
+        }
+        len -= 1;
+    }
+
+    size_t ret = strlen(twobmatmp.num);
+    copy_to_user(buf, twobtmp.num, ret);
+    return ret;
+}
+
+static long long fib_sequences(long long k, int flag, char *buf)
+{
+    switch (flag) {
+    case 1:
+        return fib_sequence_fast_doubling(k);
+
+    case 2:
+        return fib_sequence_big_num_fix(k, buf);
+
+    case 3:
+        return fib_sequence_big_num_fix_fd(k, buf);
+
+    default:
+        return fib_sequence(k);
+    }
+}
+
+static long long fib_time_proxy(long long k, int flag, char *buf)
 {
     kt = ktime_get();
-    long long result = fib_sequence(k);
+    long long result = fib_sequences(k, flag, buf);
     kt = ktime_sub(ktime_get(), kt);
 
     return result;
 }
-
 
 static int fib_open(struct inode *inode, struct file *file)
 {
@@ -93,7 +176,7 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_time_proxy(*offset);
+    return (ssize_t) fib_time_proxy(*offset, 3, buf);
 }
 
 /* write operation is skipped */
