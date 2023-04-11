@@ -91,8 +91,10 @@ static void big_num_fix_mul(big_num_fix_t *ina,
                             big_num_fix_t *out)
 {
     int carry = 0, sum, base;
+    bool carry_flag = false;
     size_t size_a = strlen(ina->num);
     size_t size_b = strlen(inb->num);
+    int bottom_index = size_a + size_b;
     for (int i = 0; i < size_b; i++) {
         for (int j = 0; j < size_a; j++) {
             base = out->num[j + i] - '0';
@@ -105,8 +107,12 @@ static void big_num_fix_mul(big_num_fix_t *ina,
         if (carry) {
             out->num[i + size_a] = ('0' + carry);
             carry = 0;
+            carry_flag = true;
         }
     }
+    if (!carry_flag)
+        bottom_index--;
+    out->num[bottom_index] = '\0';
     return;
 }
 
@@ -121,8 +127,9 @@ static void big_num_fix_sub(big_num_fix_t *ina,
             ina->num[i + 1]--;
             ina->num[i] += 10;
         }
-        out->num[i] = ina->num[i] - inb->num[i];
+        out->num[i] = (ina->num[i] - inb->num[i]) + '0';
     }
+    out->num[--sizes] = '\0';
     return;
 }
 
