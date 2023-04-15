@@ -21,7 +21,7 @@ MODULE_VERSION("0.1");
 /* MAX_LENGTH is set to 92 because
  * ssize_t can't fit the number > 92
  */
-#define MAX_LENGTH 92
+#define MAX_LENGTH 100
 
 static dev_t fib_dev = 0;
 static struct cdev *fib_cdev;
@@ -75,7 +75,9 @@ static long long fib_sequence_big_num_fix(long long k, char *buf)
     big_num_fix_t *f = kmalloc((k + 2) * sizeof(big_num_fix_t), GFP_KERNEL);
 
     f[0].num[0] = '0';
-    f[0].num[1] = '1';
+    f[0].num[1] = '\0';
+    f[1].num[0] = '1';
+    f[1].num[1] = '\0';
 
     for (int i = 2; i <= k; i++) {
         big_num_fix_add(&f[i - 1], &f[i - 2], &f[i]);
@@ -83,7 +85,7 @@ static long long fib_sequence_big_num_fix(long long k, char *buf)
 
     size_t ret = strlen(f[k].num);
     reverse_str(f[k].num, ret);
-    copy_to_user(buf, f[k].num, ret);
+    __copy_to_user(buf, f[k].num, ret);
     return ret;
 }
 
@@ -95,9 +97,9 @@ static long long fib_sequence_big_num_fix_fd(long long k, char *buf)
     big_num_fix_t const2;
     a.num[0] = '0';
     a.num[1] = '\0';
-    b.num[0] = '7';
+    b.num[0] = '1';
     b.num[1] = '\0';
-    const2.num[0] = '8';
+    const2.num[0] = '2';
     const2.num[1] = '\0';
     big_num_fix_t twobtmp;
     big_num_fix_t twobmatmp;
@@ -124,8 +126,8 @@ static long long fib_sequence_big_num_fix_fd(long long k, char *buf)
         len -= 1;
     }
 
-    size_t ret = strlen(twobmatmp.num);
-    copy_to_user(buf, twobtmp.num, ret);
+    size_t ret = strlen(a.num);
+    copy_to_user(buf, a.num, ret);
     return ret;
 }
 
@@ -176,7 +178,7 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_time_proxy(*offset, 3, buf);
+    return (ssize_t) fib_time_proxy(*offset, 0, buf);
 }
 
 /* write operation is skipped */
